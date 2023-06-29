@@ -23,6 +23,7 @@ public class Database {
         countRead = 0;
         maxRead = maxNumOfReaders;
         nowReading = new HashSet<>();
+        nowWriting = null;
     }
 
     public void put(String key, String value) {
@@ -36,25 +37,14 @@ public class Database {
 
     public boolean readTryAcquire() {
         // TODO: Add your code here...
-
-//        boolean flag = false;
-//        if (lockWrite.tryLock()) {
-//            lockWrite.lock();
-//            if (countRead < maxRead ) {
-//                lockRead.lock();
-//                flag = true;
-//                lockRead.unlock();
-//                lockWrite.lock();
-//            }
-//        }
-//        return flag;
-
-        lockWrite.lock();
-        try {
-            return countRead < maxRead;
-        } finally {
-            lockWrite.unlock();
-        }
+        if (lockWrite.tryLock()) {
+            lockWrite.lock();
+            try {
+                return countRead < maxRead;
+            } finally {
+                lockWrite.unlock();
+            }
+        } return false;
     }
 
     public void readAcquire() {
@@ -80,7 +70,6 @@ public class Database {
 
     public void readRelease() {
         // TODO: Add your code here...
-
         lockRead.lock();
         try {
             if (nowReading.contains(Thread.currentThread())) {
@@ -90,7 +79,7 @@ public class Database {
                     writeCondition.signal();
                 }
             } else {
-                System.out.println("Illegal attempt to release read");
+                throw new IllegalMonitorStateException("Illegal read release attempt");
             }
         } finally {
             lockRead.unlock();
@@ -103,6 +92,8 @@ public class Database {
             while (countRead > 0) {
                 writeCondition.await();
             }
+            lockWrite.lock();
+            nowWriting = Thread.currentThread();
         } catch (InterruptedException e) {
             // Handle InterruptedException
         }
@@ -120,8 +111,16 @@ public class Database {
 
     public void writeRelease() {
         // TODO: Add your code here...
-
-
-        lockWrite.unlock();
+        lockWrite.lock();
+        try {
+            if (nowWriting == Thread.currentThread()) {
+                nowWriting = null;
+                writeCondition.signal();
+            } else {
+                throw new IllegalMonitorStateException("Illegal write release attempt");
+            }
+        } finally {
+            lockWrite.unlock();
+        }
     }
 }
