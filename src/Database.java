@@ -4,6 +4,7 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
 
+
 public class Database {
     private Map<String, String> data;
     final int maxRead;
@@ -45,26 +46,34 @@ public class Database {
         // TODO: Add your code here...
 
         while (!lockWrite.tryLock()) {
-            this.wait();
+            lockRead.wait();
         }
+        lockWrite.lock();
         while (countRead >= maxRead) {
-            this.wait();
+            lockWrite.lock();
+            lockRead.wait();
         }
-        lockRead.lock();
-        countRead += 1;
+        if (lockRead.tryLock()) {
+            lockRead.lock();
+            countRead += 1;
+        }
     }
 
 
     public void readRelease() {
         // TODO: Add your code here...
 
+        /** not the one who's reading */
         try {
-
-
-        } catch (IllegalMonitorStateException e) {
-
+            if (Thread.holdsLock(lockRead)) {
+                countRead -= 1;
+                //lockRead.unlock();
+            }
+        }catch (IllegalMonitorStateException e) {
+            System.out.println("Illegal read release attempt");
+            throw e;
         } finally {
-
+            lockRead.unlock();
         }
     }
 
