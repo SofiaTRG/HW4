@@ -33,10 +33,12 @@ public class Database {
 
         boolean flag = false;
         if (lockWrite.tryLock()) {
+            lockWrite.lock();
             if (countRead < maxRead ) {
                 lockRead.lock();
                 flag = true;
                 lockRead.unlock();
+                lockWrite.lock();
             }
         }
         return flag;
@@ -50,7 +52,6 @@ public class Database {
         }
         lockWrite.lock();
         while (countRead >= maxRead) {
-            lockWrite.lock();
             lockRead.wait();
         }
         if (lockRead.tryLock()) {
@@ -58,7 +59,6 @@ public class Database {
             countRead += 1;
         }
     }
-
 
     public void readRelease() {
         // TODO: Add your code here...
@@ -78,7 +78,9 @@ public class Database {
     }
 
     public void writeAcquire() {
-       // TODO: Add your code here...
+       if (lockWrite.tryLock()) {
+
+       }
     }
 
     public boolean writeTryAcquire() {
