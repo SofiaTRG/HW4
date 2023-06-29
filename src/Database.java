@@ -1,22 +1,28 @@
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
-
-
 public class Database {
     private Map<String, String> data;
-    final int maxRead;
     private int countRead;
+    private boolean isWriting;
     private Lock lockRead = new ReentrantLock();
     private Lock lockWrite = new ReentrantLock();
+    private Condition readCondition = lockRead.newCondition();
+    private Condition writeCondition = lockWrite.newCondition();
+    private Set<Thread> nowReading;
+    private final int maxRead;
 
 
     public Database(int maxNumOfReaders) {
         data = new HashMap<>();  // Note: You may add fields to the class and initialize them in here. Do not add parameters!
         countRead = 0;
         maxRead = maxNumOfReaders;
+        nowReading = new HashSet<>();
     }
 
     public void put(String key, String value) {
@@ -31,56 +37,75 @@ public class Database {
     public boolean readTryAcquire() {
         // TODO: Add your code here...
 
-        boolean flag = false;
-        if (lockWrite.tryLock()) {
-            lockWrite.lock();
-            if (countRead < maxRead ) {
-                lockRead.lock();
-                flag = true;
-                lockRead.unlock();
-                lockWrite.lock();
-            }
+//        boolean flag = false;
+//        if (lockWrite.tryLock()) {
+//            lockWrite.lock();
+//            if (countRead < maxRead ) {
+//                lockRead.lock();
+//                flag = true;
+//                lockRead.unlock();
+//                lockWrite.lock();
+//            }
+//        }
+//        return flag;
+
+        lockWrite.lock();
+        try {
+            return countRead < maxRead && !isWriting;
+        } finally {
+            lockWrite.unlock();
         }
-        return flag;
     }
 
     public void readAcquire() {
         // TODO: Add your code here...
 
-        while (!lockWrite.tryLock()) {
-            lockRead.wait();
-        }
         lockWrite.lock();
-        while (countRead >= maxRead) {
-            lockRead.wait();
-        }
-        if (lockRead.tryLock()) {
+        try {
+            while (countRead >= maxRead || isWriting) {
+                readCondition.await();
+            }
             lockRead.lock();
-            countRead += 1;
+            try {
+                countRead++;
+                nowReading.add(Thread.currentThread());
+            } finally {
+                lockRead.unlock();
+            }
+        } finally {
+            lockWrite.unlock();
         }
     }
 
     public void readRelease() {
         // TODO: Add your code here...
 
-        /** not the one who's reading */
+        lockRead.lock();
         try {
-            if (Thread.holdsLock(lockRead)) {
-                countRead -= 1;
-                //lockRead.unlock();
+            if (nowReading.contains(Thread.currentThread())) {
+                countRead--;
+                nowReading.remove(Thread.currentThread());
+                if (countRead == 0) {
+                    writeCondition.signal();
+                }
+            } else {
+                throw new IllegalMonitorStateException("Illegal attempt to release read");
             }
-        }catch (IllegalMonitorStateException e) {
-            System.out.println("Illegal read release attempt");
-            throw e;
         } finally {
             lockRead.unlock();
         }
     }
 
     public void writeAcquire() {
-       if (lockWrite.tryLock()) {
-
-       }
+        lockWrite.lockInterruptibly();
+        try {
+            while (countRead > 0 || isWriting) {
+                writeCondition.await();
+            }
+            isWriting = true;
+        } finally {
+            lockWrite.unlock();
+        }
     }
 
     public boolean writeTryAcquire() {
