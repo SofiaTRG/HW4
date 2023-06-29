@@ -12,16 +12,18 @@ public class LevelLargestSum {
         int currentLevel = 0;
         int currentSum = 0;
 
+        BinNode<Integer> sentinel = new BinNode<>(null);  // Sentinel node
+
         ArrayDeque<BinNode<Integer>> queue = new ArrayDeque<>();
         queue.offer(root);
-        queue.offer(null);
+        queue.offer(sentinel);  // Add the sentinel node
 
         while (!queue.isEmpty()) {
             BinNode<Integer> node = queue.poll();
 
-            if (node == null) {
+            if (node == sentinel) {
                 if (!queue.isEmpty()) {
-                    queue.offer(null);
+                    queue.offer(sentinel);  // Add the sentinel node for the next level
                 }
 
                 if (currentSum > maxSum) {

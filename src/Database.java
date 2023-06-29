@@ -9,12 +9,12 @@ import java.util.concurrent.locks.ReentrantLock;
 public class Database {
     private Map<String, String> data;
     private int countRead;
-    private boolean isWriting;
     private Lock lockRead = new ReentrantLock();
     private Lock lockWrite = new ReentrantLock();
     private Condition readCondition = lockRead.newCondition();
     private Condition writeCondition = lockWrite.newCondition();
     private Set<Thread> nowReading;
+    private Thread nowWriting;
     private final int maxRead;
 
 
@@ -51,7 +51,7 @@ public class Database {
 
         lockWrite.lock();
         try {
-            return countRead < maxRead && !isWriting;
+            return countRead < maxRead;
         } finally {
             lockWrite.unlock();
         }
@@ -59,10 +59,9 @@ public class Database {
 
     public void readAcquire() {
         // TODO: Add your code here...
-
         lockWrite.lock();
         try {
-            while (countRead >= maxRead || isWriting) {
+            while (countRead >= maxRead) {
                 readCondition.await();
             }
             lockRead.lock();
@@ -72,6 +71,8 @@ public class Database {
             } finally {
                 lockRead.unlock();
             }
+        } catch (InterruptedException e) {
+            // Handle InterruptedException
         } finally {
             lockWrite.unlock();
         }
@@ -89,7 +90,7 @@ public class Database {
                     writeCondition.signal();
                 }
             } else {
-                throw new IllegalMonitorStateException("Illegal attempt to release read");
+                System.out.println("Illegal attempt to release read");
             }
         } finally {
             lockRead.unlock();
@@ -97,22 +98,30 @@ public class Database {
     }
 
     public void writeAcquire() {
-        lockWrite.lockInterruptibly();
         try {
-            while (countRead > 0 || isWriting) {
+            lockWrite.lockInterruptibly();
+            while (countRead > 0) {
                 writeCondition.await();
             }
-            isWriting = true;
-        } finally {
-            lockWrite.unlock();
+        } catch (InterruptedException e) {
+            // Handle InterruptedException
         }
     }
 
     public boolean writeTryAcquire() {
         // TODO: Add your code here...
+        lockWrite.lock();
+        try {
+            return countRead == 0;
+        } finally {
+            lockWrite.unlock();
+        }
     }
 
     public void writeRelease() {
         // TODO: Add your code here...
+
+
+        lockWrite.unlock();
     }
 }

@@ -12,18 +12,19 @@ public class PathFromRoot {
         // TODO: Add your code for part A1 here...
 
         /** if we got an empty string */
+        if (root == null) {
+            return str.length() == 0;
+        }
+
         if (str.length() == 0) {
             return true;
         }
-        /** we reached the end og the tree and found no match */
-        if (root == null) {
-            return false;
+
+        if (root.getData().equals(str.charAt(0))) {
+            return doesPathExist(root.getLeft(), str.substring(1)) ||
+                    doesPathExist(root.getRight(), str.substring(1));
         }
 
-        if (str.length() > 2) {
-            return root.getData().equals(str.charAt(0));
-        }
-        return doesPathExist(root.getRight(), str.substring(1)) ||
-                doesPathExist(root.getLeft(), str.substring(1));
+        return false;
     }
 }
