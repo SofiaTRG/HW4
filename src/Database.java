@@ -37,39 +37,35 @@ public class Database {
 
     public boolean readTryAcquire() {
         // TODO: Add your code here...
-        if (lockWrite.tryLock()) {
-            lockWrite.lock();
-            try {
-                return countRead < maxRead;
-            } finally {
-                lockWrite.unlock();
+        lockRead.lock(); // Acquire the read lock
+        try {
+            if (countRead < maxRead) {
+                countRead++; // Increment the number of readers
+                return true; // Successfully acquired the read lock
             }
-        } return false;
+        } finally {
+            lockRead.unlock(); // Release the read lock
+        }
+        return false; // Failed to acquire the read lock
     }
 
     public void readAcquire() {
-        // TODO: Add your code here...
-        lockWrite.lock();
+        lockRead.lock(); // Acquire the read lock
         try {
             while (countRead >= maxRead) {
                 readCondition.await();
             }
-            lockRead.lock();
-            try {
-                countRead++;
-                nowReading.add(Thread.currentThread());
-            } finally {
-                lockRead.unlock();
-            }
+            countRead++;
+            nowReading.add(Thread.currentThread());
         } catch (InterruptedException e) {
             // Handle InterruptedException
         } finally {
-            lockWrite.unlock();
+            lockRead.unlock();
         }
     }
 
+
     public void readRelease() {
-        // TODO: Add your code here...
         lockRead.lock();
         try {
             if (nowReading.contains(Thread.currentThread())) {
@@ -86,18 +82,23 @@ public class Database {
         }
     }
 
+
     public void writeAcquire() {
+        lockRead.unlock();
+        lockWrite.lock();
         try {
-            lockWrite.lockInterruptibly();
             while (countRead > 0) {
                 writeCondition.await();
             }
-            lockWrite.lock();
             nowWriting = Thread.currentThread();
         } catch (InterruptedException e) {
             // Handle InterruptedException
+        } finally {
+            lockWrite.unlock();
         }
     }
+
+
 
     public boolean writeTryAcquire() {
         // TODO: Add your code here...
@@ -110,7 +111,6 @@ public class Database {
     }
 
     public void writeRelease() {
-        // TODO: Add your code here...
         lockWrite.lock();
         try {
             if (nowWriting == Thread.currentThread()) {
@@ -123,4 +123,5 @@ public class Database {
             lockWrite.unlock();
         }
     }
+
 }
