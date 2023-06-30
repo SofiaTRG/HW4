@@ -2,24 +2,18 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.locks.Condition;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 
 public class Database {
     private Map<String, String> data;
     private int countRead;
-    private Lock lockRead = new ReentrantLock();
-    private Lock lockWrite = new ReentrantLock();
-    private Condition readCondition = lockRead.newCondition();
-    private Condition writeCondition = lockWrite.newCondition();
+    private Object readLock = new Object();
+    private Object writeLock = new Object();
     private Set<Thread> nowReading;
     private Thread nowWriting;
     private final int maxRead;
 
-
     public Database(int maxNumOfReaders) {
-        data = new HashMap<>();  // Note: You may add fields to the class and initialize them in here. Do not add parameters!
+        data = new HashMap<>();
         countRead = 0;
         maxRead = maxNumOfReaders;
         nowReading = new HashSet<>();
@@ -34,93 +28,75 @@ public class Database {
         return data.get(key);
     }
 
-
     public boolean readTryAcquire() {
-        // TODO: Add your code here...
-        lockRead.lock(); // Acquire the read lock
-        try {
+        synchronized (readLock) {
             if (countRead < maxRead) {
-                countRead++; // Increment the number of readers
-                return true; // Successfully acquired the read lock
+                countRead++;
+                return true;
             }
-        } finally {
-            lockRead.unlock(); // Release the read lock
         }
-        return false; // Failed to acquire the read lock
+        return false;
     }
 
     public void readAcquire() {
-        lockRead.lock(); // Acquire the read lock
-        try {
-            while (countRead >= maxRead) {
-                readCondition.await();
+        synchronized (readLock) {
+            while (countRead >= maxRead || nowWriting != null) {
+                try {
+                    readLock.wait();
+                } catch (InterruptedException e) {
+                    // Handle InterruptedException
+                }
             }
             countRead++;
             nowReading.add(Thread.currentThread());
-        } catch (InterruptedException e) {
-            // Handle InterruptedException
-        } finally {
-            lockRead.unlock();
         }
     }
 
-
     public void readRelease() {
-        lockRead.lock();
-        try {
+        synchronized (readLock) {
             if (nowReading.contains(Thread.currentThread())) {
                 countRead--;
                 nowReading.remove(Thread.currentThread());
                 if (countRead == 0) {
-                    writeCondition.signal();
+                    readLock.notifyAll();
                 }
             } else {
                 throw new IllegalMonitorStateException("Illegal read release attempt");
             }
-        } finally {
-            lockRead.unlock();
         }
     }
-
 
     public void writeAcquire() {
-        lockRead.unlock();
-        lockWrite.lock();
-        try {
-            while (countRead > 0) {
-                writeCondition.await();
+        synchronized (writeLock) {
+            while (nowWriting != null) {
+                try {
+                    writeLock.wait();
+                } catch (InterruptedException e) {
+                    // Handle InterruptedException
+                }
             }
             nowWriting = Thread.currentThread();
-        } catch (InterruptedException e) {
-            // Handle InterruptedException
-        } finally {
-            lockWrite.unlock();
         }
     }
-
 
 
     public boolean writeTryAcquire() {
-        // TODO: Add your code here...
-        lockWrite.lock();
-        try {
-            return countRead == 0;
-        } finally {
-            lockWrite.unlock();
+        synchronized (writeLock) {
+            return countRead == 0 && nowWriting == null;
         }
     }
 
     public void writeRelease() {
-        lockWrite.lock();
-        try {
+        synchronized (writeLock) {
             if (nowWriting == Thread.currentThread()) {
                 nowWriting = null;
-                writeCondition.signal();
+                synchronized (readLock) {
+                    readLock.notifyAll();
+                }
+                writeLock.notify();
             } else {
                 throw new IllegalMonitorStateException("Illegal write release attempt");
             }
-        } finally {
-            lockWrite.unlock();
         }
     }
 
