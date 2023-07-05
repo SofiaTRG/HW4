@@ -1,6 +1,8 @@
 import java.util.ArrayDeque;
 
-/** Class to find the level with the largest sum in a binary tree. */
+/**
+ * Class to find the level with the largest sum in a binary tree.
+ */
 public class LevelLargestSum {
 
     /**

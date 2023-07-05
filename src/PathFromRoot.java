@@ -1,5 +1,5 @@
 /**
- *
+ * Class that finds if a string is in a binary tree.
  */
 public class PathFromRoot {
     /**
