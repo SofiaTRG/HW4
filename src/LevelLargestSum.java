@@ -12,6 +12,7 @@ public class LevelLargestSum {
      */
     public static int getLevelWithLargestSum(BinNode<Integer> root) {
         // TODO: Add your code for part A2 here...
+        /** the binary tree is empty or we got to the end of the tree */
         if (root == null) {
             return -1;
         }
@@ -25,14 +26,15 @@ public class LevelLargestSum {
 
         ArrayDeque<BinNode<Integer>> queue = new ArrayDeque<>();
         queue.offer(root);
-        queue.offer(flag);  // Add the flag node
+        queue.offer(flag);
 
         while (!queue.isEmpty()) {
             BinNode<Integer> node = queue.poll();
 
             if (node == flag) {
                 if (!queue.isEmpty()) {
-                    queue.offer(flag);  // Add the flag node for the next level
+                    /** Add the flag node for the next level */
+                    queue.offer(flag);
                 }
 
                 if (currentSum > maxSum) {
