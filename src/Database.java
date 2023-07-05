@@ -5,14 +5,20 @@ import java.util.Set;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
+/** A  database implementation with read and write synchronization. */
 public class Database {
     private Map<String, String> data;
     private static int maxRead;
     private static int numCurrentReading;
     private static Lock lockRead = new ReentrantLock();
     private static Lock lockWrite = new ReentrantLock();
+    /** The current threads that are reading */
     private static Set<Thread> nowReadWork = new HashSet<>();
 
+    /**
+     * Constructs a new Database instance with the specified maximum number of readers.
+     * @param maxNumOfReaders The maximum number of readers allowed concurrently.
+     */
     public Database(int maxNumOfReaders) {
         data = new HashMap<>();
         maxRead = maxNumOfReaders;
@@ -27,6 +33,10 @@ public class Database {
         return data.get(key);
     }
 
+    /**
+     * Tries to acquire a readlock for the current thread without blocking.
+     * @return true if the readlock was acquired successfully, false otherwise.
+     */
     public boolean readTryAcquire() {
         if (lockWrite.tryLock()) {
             if (lockRead.tryLock()) {
@@ -44,6 +54,9 @@ public class Database {
         return false;
     }
 
+    /**
+     * Acquires a readlock for the current thread, blocking until it is available.
+     */
     public void readAcquire() {
         boolean flag = false;
         while (!lockWrite.tryLock());
@@ -59,6 +72,10 @@ public class Database {
         nowReadWork.add(Thread.currentThread());
     }
 
+    /**
+     * Releases the readlock held by the current thread.
+     * @throws IllegalMonitorStateException if the current thread did not previously acquire the readlock.
+     */
     public void readRelease() throws IllegalMonitorStateException {
         if (!nowReadWork.contains(Thread.currentThread())) {
             String errorMessage = "Illegal read release attempt";
@@ -69,6 +86,9 @@ public class Database {
         }
     }
 
+    /**
+     * Acquires a writelock for the current thread, blocking until it is available.
+     */
     public void writeAcquire() {
         while (!lockWrite.tryLock());
         while (!lockRead.tryLock());
@@ -76,6 +96,10 @@ public class Database {
         nowReadWork.add(Thread.currentThread());
     }
 
+    /**
+     * Tries to acquire a writelock for the current thread without blocking.
+     * @return true if the write lock was acquired successfully, false otherwise.
+     */
     public boolean writeTryAcquire() {
         if (lockWrite.tryLock()) {
             if (lockRead.tryLock()) {
@@ -90,6 +114,10 @@ public class Database {
         return false;
     }
 
+    /**
+     * Releases the writelock held by the current thread.
+     * @throws IllegalMonitorStateException if the current thread did not previously acquire the writelock.
+     */
     public void writeRelease() throws IllegalMonitorStateException {
         if (!nowReadWork.contains(Thread.currentThread())) {
             String errorMessage = "Illegal write release attempt";
